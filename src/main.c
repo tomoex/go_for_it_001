@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include "../commandLineOption/commandLineOption.h"
 #include "../lifeClock/lifeClock.h"
-
+#include "../PCUnit/PCUnit.h"
 
 /* 人生の入力方式どうしようか？
  *
@@ -19,9 +19,20 @@
  * コマンドライン解析はgetoptを使うと割と簡単にできるらしい
 */
 
+#define UNIT_TEST_MODE
 
 
+#ifdef UNIT_TEST_MODE
+PCU_Suite *timeTest_suite(void);
 
+int main(int argc, char *argv[]){
+	const PCU_SuiteMethod suites[] = {
+			timeTest_suite
+	};
+	PCU_set_putchar(putchar);
+	return PCU_run(suites, sizeof suites / sizeof suites[0]);
+}
+#else /* UNIT_TEST_MODE */
 int main(int argc, char *argv[]){
 	CommandLineOptions option;
 	PersonData* data;
@@ -47,5 +58,5 @@ int main(int argc, char *argv[]){
 	LifeClockData_delete(data);
 	return 1;
 }
-
+#endif /* UNIT_TEST_MODE */
 
