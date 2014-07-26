@@ -24,7 +24,7 @@
 
 int main(int argc, char *argv[]){
 	CommandLineOptions option;
-	LifeClockData* data;
+	PersonData* data;
 	int retOfSet;
 	unsigned int time;
 
@@ -47,4 +47,5 @@ int main(int argc, char *argv[]){
 	LifeClockData_delete(data);
 	return 1;
 }
+
 

@@ -5,34 +5,26 @@
  *      Author: tomoe
  */
 
-#include "../lifeClock.h"
-#include "../inc/lifeClockMain.h"
+/* 参照するヘッダ */
+#include "../inc/date.h"
+#include "../inc/time.h"
 #include "../../common/emttype.h"
-
 #include <stddef.h>
 #include <stdlib.h>
 
-#define YYYY_MIN 0
-#define YYYY_MAX 9999
-#define MM_MIN   1
-#define MM_MAX   12
-#define DD_MIN   1
-#define DD_MAX   31
+/* 実装するヘッダ */
+#include "../lifeClock.h"
+#include "../inc/lifeClockMain.h"
 
-#define VERIFY_YYYYMMDD_SUCCESS           0
-#define VERIFY_YYYYMMDD_YYYY_OUT_OF_RANGE 1
-#define VERIFY_YYYYMMDD_MM_OUT_OF_RANGE   2
-#define VERIFY_YYYYMMDD_DD_OUT_OF_RANGE   3
-#define VERIFY_YYYYMMDD_MM_DD_IS_UNJUST   4
 
-struct LifeClockData_t{
+struct PersonData_t{
 	unsigned int birthday;
-	unsigned int life;
+	unsigned int age;
 };
 
-LifeClockData* LifeClockData_create(){
+PersonData* LifeClockData_create(){
 	// 領域確保
-	LifeClockData* object = malloc(sizeof(LifeClockData));
+	PersonData* object = malloc(sizeof(PersonData));
 
 	// 初期化
 	LifeClockData_initialize(object);
@@ -40,12 +32,12 @@ LifeClockData* LifeClockData_create(){
 	return object;
 }
 
-void LifeClockData_delete(LifeClockData* target){
+void LifeClockData_delete(PersonData* target){
 	// 解放
 	free(target);
 }
 
-int LifeClockData_setRequisiteParameters(LifeClockData* target, unsigned int birthday, unsigned int life){
+int LifeClockData_setRequisiteParameters(PersonData* target, unsigned int birthday, unsigned int age){
 	int yyyy;
 	int mm;
 	int dd;
@@ -66,108 +58,67 @@ int LifeClockData_setRequisiteParameters(LifeClockData* target, unsigned int bir
 
 	/* パラメータを設定する */
 	target->birthday = birthday;
-	target->life     = life;
+	target->age     = age;
 
 	return 0;
 }
 
-unsigned int lifeToClockTime(const LifeClockData* life, unsigned int day){
-	return 0;
+unsigned int lifeToClockTime(const PersonData* target, unsigned int currentDay){
+	int yyyy_currentDay;
+	int mm_currentDay;
+	int dd_currentDay;
+
+	int lifeBegin_day;
+	int lifeNow_day;
+	int lifeEnd_day;
+
+	int lifeCurrentDays;
+	int lifeAllDays;
+	double normalizedLife;
+
+	unsigned int clockTimeSeconds;
+	unsigned int clockTime;
+
+	/* 引数(currentDay)のチェック */
+	yyyy_currentDay = parseDay(currentDay);
+	mm_currentDay   = parseMonth(currentDay);
+	dd_currentDay   = parseDay(currentDay);
+	if(yyyy_currentDay == -1 || mm_currentDay == -1 || dd_currentDay == -1){
+		return CONVERT_LIFE_TO_CLOCKTIME_ERROR;
+	}
+	if(verifyYYYYMMDD(yyyy_currentDay, mm_currentDay, dd_currentDay) != VERIFY_YYYYMMDD_SUCCESS){
+		return CONVERT_LIFE_TO_CLOCKTIME_ERROR;
+	}
+
+	/* 各年月日から生存している総日数と、任意の日付時点の生存日数を計算する */
+	lifeBegin_day = YYYYMMDDToDay(target->birthday);
+	lifeNow_day   = YYYYMMDDToDay(currentDay);
+	lifeEnd_day   = YYYYMMDDToDay(target->birthday + target->age * 10000);
+
+	if(lifeBegin_day == -1 || lifeNow_day == -1 || lifeEnd_day == -1){
+		return CONVERT_LIFE_TO_CLOCKTIME_ERROR;
+	}
+
+	// TODO 細かいところがおかしい気がする
+	lifeCurrentDays = lifeNow_day - lifeBegin_day;
+	lifeAllDays     = lifeEnd_day - lifeBegin_day;
+
+	/* 生存日数を総日数で正規化する(0～1.0) */
+	normalizedLife = lifeCurrentDays / lifeAllDays;
+
+	/* 正規化した生存日数を24時間に変換する */
+	clockTimeSeconds = SECONDS_PER_DAY * normalizedLife;
+	clockTime        = secondToHHMMSS(clockTimeSeconds);
+
+	return clockTime;
 }
 
 
-void LifeClockData_initialize(LifeClockData* target){
+void LifeClockData_initialize(PersonData* target){
 	target->birthday = 0;
-	target->life     = 0;
+	target->age      = 0;
 }
 
 
-int parseYear(unsigned int yyyymmdd){
-	unsigned int year = yyyymmdd / 10000;
-
-	if(YYYY_MAX < year){
-		return -1;
-	}
-
-	return year;
-}
-
-int parseMonth(unsigned int yyyymmdd){
-	unsigned int year  = yyyymmdd / 10000;
-	unsigned int month = yyyymmdd / 100 - year;
-
-	if(MM_MIN == month || MM_MAX < month){
-		return -1;
-	}
-
-	return month;
-}
-
-int parseDay(unsigned int yyyymmdd){
-	unsigned int yearMonth = yyyymmdd / 100;
-	unsigned int day       = yyyymmdd - yearMonth;
-
-	if(DD_MIN == day || DD_MAX < DD_MAX){
-		return -1;
-	}
-
-	return day;
-}
-
-
-int verifyYYYYMMDD(unsigned int yyyy, unsigned int mm, unsigned int dd){
-	const unsigned int DD_MAX_EACH_MM[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-
-	// 値の範囲のチェック
-	if(yyyy < YYYY_MIN || YYYY_MAX < yyyy){
-		return VERIFY_YYYYMMDD_YYYY_OUT_OF_RANGE;
-	}
-	if(mm < MM_MIN || MM_MAX < mm){
-		return VERIFY_YYYYMMDD_MM_OUT_OF_RANGE;
-	}
-	if(dd < DD_MIN || DD_MAX < dd){
-		return VERIFY_YYYYMMDD_DD_OUT_OF_RANGE;
-	}
-
-	// 月に対する日の対応のチェック
-	// うるう年の2月の場合
-	if(mm == 2 &&isLeapYear(yyyy) == BOOL_TRUE){
-		if(DD_MAX_EACH_MM[mm - 1] + 1 < dd){
-			return VERIFY_YYYYMMDD_MM_DD_IS_UNJUST;
-		}
-	}
-	// それ以外の場合
-	else{
-		if(DD_MAX_EACH_MM[mm - 1] < dd){
-			return VERIFY_YYYYMMDD_MM_DD_IS_UNJUST;
-		}
-	}
-
-
-	// 検証OK
-	return VERIFY_YYYYMMDD_SUCCESS;
-}
-
-int isLeapYear(unsigned int yyyy){
-
-	if(yyyy % 4 == 0){
-		if(yyyy % 100 == 0){
-			if(yyyy % 400 == 0){
-				return BOOL_TRUE;
-			}
-			else{
-				return BOOL_FALSE;
-			}
-		}
-		else{
-			return BOOL_TRUE;
-		}
-	}
-	else{
-		return BOOL_FALSE;
-	}
-
-	return BOOL_FALSE;
-}
 
 
